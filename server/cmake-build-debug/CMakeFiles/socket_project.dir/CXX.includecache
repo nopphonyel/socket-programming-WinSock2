@@ -6,7 +6,7 @@
 
 #IncludeRegexTransform: 
 
-F:/prog_pack/server/server.cpp
+E:/Users/nopph/Documents/Network/Project/socket-programming-WinSock2/server/server.cpp
 iostream
 -
 WinSock2.h
@@ -14,5 +14,11 @@ WinSock2.h
 string
 -
 cstring
+-
+list
+-
+fstream
+-
+vector
 -
 

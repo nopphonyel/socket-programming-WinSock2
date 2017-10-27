@@ -47,10 +47,10 @@ RM = "E:\Program Files\Jetbrains\apps\CLion\ch-0\172.4343.16\bin\cmake\bin\cmake
 EQUALS = =
 
 # The top-level source directory on which CMake was run.
-CMAKE_SOURCE_DIR = F:\prog_pack\server
+CMAKE_SOURCE_DIR = E:\Users\nopph\Documents\Network\Project\socket-programming-WinSock2\server
 
 # The top-level build directory on which CMake was run.
-CMAKE_BINARY_DIR = F:\prog_pack\server\cmake-build-debug
+CMAKE_BINARY_DIR = E:\Users\nopph\Documents\Network\Project\socket-programming-WinSock2\server\cmake-build-debug
 
 #=============================================================================
 # Targets provided globally by CMake.
@@ -79,9 +79,9 @@ rebuild_cache/fast: rebuild_cache
 
 # The main all target
 all: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start F:\prog_pack\server\cmake-build-debug\CMakeFiles F:\prog_pack\server\cmake-build-debug\CMakeFiles\progress.marks
+	$(CMAKE_COMMAND) -E cmake_progress_start E:\Users\nopph\Documents\Network\Project\socket-programming-WinSock2\server\cmake-build-debug\CMakeFiles E:\Users\nopph\Documents\Network\Project\socket-programming-WinSock2\server\cmake-build-debug\CMakeFiles\progress.marks
 	$(MAKE) -f CMakeFiles\Makefile2 all
-	$(CMAKE_COMMAND) -E cmake_progress_start F:\prog_pack\server\cmake-build-debug\CMakeFiles 0
+	$(CMAKE_COMMAND) -E cmake_progress_start E:\Users\nopph\Documents\Network\Project\socket-programming-WinSock2\server\cmake-build-debug\CMakeFiles 0
 .PHONY : all
 
 # The main clean target

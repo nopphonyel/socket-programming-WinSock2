@@ -6,7 +6,7 @@
 
 #IncludeRegexTransform: 
 
-D:/Users/nopph/Documents/Network/Socket Project/client/main.cpp
+E:/Users/nopph/Documents/Network/Project/socket-programming-WinSock2/client/main.cpp
 iostream
 -
 winsock2.h
