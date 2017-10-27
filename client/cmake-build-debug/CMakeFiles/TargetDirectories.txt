@@ -1,0 +1,3 @@
+D:/Users/nopph/Documents/Network/Socket Project/client/cmake-build-debug/CMakeFiles/client.dir
+D:/Users/nopph/Documents/Network/Socket Project/client/cmake-build-debug/CMakeFiles/edit_cache.dir
+D:/Users/nopph/Documents/Network/Socket Project/client/cmake-build-debug/CMakeFiles/rebuild_cache.dir
