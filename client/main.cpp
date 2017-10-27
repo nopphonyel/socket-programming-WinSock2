@@ -2,7 +2,7 @@
 #include <winsock2.h>
 #include <afxres.h>
 
-using  namespace std;
+using namespace std;
 
 WSAData wsaData;
 
@@ -11,19 +11,17 @@ bool initWinSock() {
     if (WSAStartup(version, &wsaData) != 0) {
         cout << "<X>:Failed to initialize WinSock" << endl;
         return false;
-    }
-    else if (wsaData.wVersion != version) {
+    } else if (wsaData.wVersion != version) {
         WSACleanup();
         return false;
-    }
-    else {
+    } else {
         return true;
     }
 }
 
 SOCKET currentConnect;
 
-bool connectToServer(char* ipAddr , int portNum){
+bool connectToServer(char *ipAddr, int portNum) {
     SOCKADDR_IN targetServer;
     int sizeOfSocketAddr = sizeof(targetServer);
     //cout << sizeOfSocketAddr;
@@ -33,42 +31,46 @@ bool connectToServer(char* ipAddr , int portNum){
     targetServer.sin_port = htons(portNum);
 
     SOCKET socket1;
-    socket1 = socket(AF_INET , SOCK_STREAM , IPPROTO_TCP);
-    if (connect(socket1 , (SOCKADDR*)&targetServer , sizeOfSocketAddr) == SOCKET_ERROR){
+    socket1 = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if (connect(socket1, (SOCKADDR *) &targetServer, sizeOfSocketAddr) == SOCKET_ERROR) {
         cout << "<X>:Failed to connect to " << targetServer.sin_addr.S_un.S_addr << endl;
         return false;
-    } else{
+    } else {
         cout << "<I>:Successfully connected to " << targetServer.sin_addr.S_un.S_addr << endl;
         currentConnect = socket1;
         return true;
     }
 }
 
-bool recvData(char* recvWindow){
-    recv(currentConnect , recvWindow , 50 , NULL);
-    if(strlen(recvWindow)!=0){
+bool recvData(char *recvWindow) {
+    recv(currentConnect, recvWindow, 150, NULL);
+    if (strlen(recvWindow) != 0) {
         return true;
-    } else{
+    } else {
         return false;
     }
 }
 
-int main(){
-    char ipAddr[10] = {0};
-    char recvText[50]={0};
-    int portNum = 0;
-    cout << "Please enter IP Address and port number\nIP,PORT>";
-    cin >> ipAddr >> portNum;
-    if(initWinSock()){
-        if(connectToServer(ipAddr , portNum)){
-            if(recvData(recvText)) {
-                cout << "<I>:Text recieve as : " << recvText
-                     << " " << strlen(recvText) << endl;
-                send(currentConnect , "ACK" , sizeof("ACK")+1 , NULL);
-            } else{
-                cout << "<!>:NULL data received" << endl;
+char recvPacket[150] = {0};
+int waitForReceive(char *ipAddr , int portNum) {
+    if (initWinSock()) {
+        if (connectToServer(ipAddr, portNum)) {
+            while(true) {
+                if (recvData(recvPacket)) {
+                    cout << "<I>:Text recieve as : " << recvPacket
+                         << " " << strlen(recvPacket) << endl;
+                    send(currentConnect, "ACK", sizeof("ACK") + 1, NULL);
+                }
             }
         }
     }
+};
+
+int main() {
+    char ipAddr[10] = {0};
+    int portNum = 0;
+    cout << "Please enter IP Address and port number\nIP,PORT>";
+    cin >> ipAddr >> portNum;
+    waitForReceive(ipAddr , portNum);
     return 0;
 }

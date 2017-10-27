@@ -11,14 +11,16 @@
 using namespace std;
 void extractData(string fileName);
 bool waitAndConnect(int portNum);
-bool sendData(char window[150]);
+bool sendData(string window);
 bool feedBack();
-void waitAndConnectThread(int portNum);
-void encode(int seq , bool isLastSeq , char* data);
+int waitAndConnectThread(int portNum);
+void encode(int seq , bool isLastSeq , string data);
+void stringCut(int from , int to , char srcString[] ,  char *returnString);
 
 WSAData wsaData;
 SOCKADDR_IN currentAddress;
 int addrlen = 0;
+const int expectedPacketLength = 150;
 
 bool initWinSock() {
     WORD version = MAKEWORD(2, 1);
@@ -58,8 +60,8 @@ bool waitAndConnect(int portNum) {
     }
 }
 
-bool sendData(char window[150]) {
-    send(currentConnect, window, 150, NULL);
+bool sendData(string window) {
+    send(currentConnect, window.c_str(), expectedPacketLength, NULL);
     return true;
 }
 
@@ -73,56 +75,65 @@ bool feedBack() {
     }
 }
 
-int trueDataSize = 150 - 11;
-char packet[150]={0};
+const int trueDataSize = expectedPacketLength - 11;
+string packet;
 int headerSize = 0;
 char* flag="7E";
 string inputData;
-typedef vector<char> eachData;
-list<eachData> listOfSeperatedData;
+list<string> listOfSeperatedData;
 
-void waitAndConnectThread(int portNum){
+int waitAndConnectThread(int portNum){
     if (waitAndConnect(portNum)) {
         cout << "<?>:Please input file name to send\nFILE_NAME>";
         cin >> inputData;
         extractData(inputData);
         int seq = 0 , totalSize = listOfSeperatedData.size();
-        for(vector<char> it : listOfSeperatedData ){
-            if(seq = totalSize-1){
-                encode(seq , true , &it[0]);
+        for(list<string>::iterator it=listOfSeperatedData.begin(); it != listOfSeperatedData.end() ; it++){
+            if(seq == totalSize-1){
+                encode(seq , true , *it);
             } else{
-                encode(seq , false , &it[0]);
+                encode(seq , false , *it);
+            }
+            if (sendData(packet)) {
+                cout << (feedBack() ?
+                         " -<I>:Data receive successfully" :
+                         " -<!>:Data receive unsuccessful")
+                     << endl;
             }
             seq++;
         }
-        /*if (sendData(packet)) {
-            cout << (feedBack() ?
-                     " -<I>:Data receive successfully" :
-                     " -<!>:Data receive unsuccessful")
-                 << endl;
-        }*/
+        closesocket(currentConnect);
     }
 }
 
-void encode(int seq , bool isLastSeq , char* data){
+void encode(int seq , bool isLastSeq , string data){
     char seqChar[6];
     sprintf(seqChar , "%06d" , seq);
-    memset(packet , 0 , strlen(packet));
-    strcat(packet , flag);
-    if(isLastSeq) strcat(packet , "1");
-    else strcat(packet , "0");
-    strcat(packet , seqChar);
-    strcat(packet , data);
-    strcat(packet , flag);
-    cout << "---[<SEQ:" << seq << ">:" << packet << "]" <<endl;
+    string seqStr = seqChar;
+    packet = "";
+    packet = packet+flag;
+    if(isLastSeq) packet+="1";
+    else packet+="0";
+    packet+=seqStr;
+    packet+=data.c_str();
+    packet+=flag;
+    cout << seqChar << " : " << data << endl;
+    //cout << "---[<SEQ:" << seq << ">:" << packet << "] : len = " << data.length() <<endl;
 }
 
 void extractData(string fileName){
     ifstream fileRead(fileName);
-    vector<char> eachSepData;
-    while(fileRead.read(&eachSepData[0] , trueDataSize)){
-        listOfSeperatedData.push_back(eachSepData);
+    char eachSepData[trueDataSize+1]={0};
+    string eachData;
+    while(fileRead.read(eachSepData , trueDataSize)){
+        eachData = eachSepData;
+        cout << eachData;
+        listOfSeperatedData.push_back(eachData);
+        memset(eachSepData , 0 , trueDataSize);
     }
+    eachData = eachSepData;
+    cout << eachData << endl;
+    listOfSeperatedData.push_back(eachData);
 }
 
 int main() {
@@ -130,8 +141,17 @@ int main() {
     int portNum = 0;
     cin >> portNum;
     if (initWinSock()) {
-        CreateThread(NULL , NULL , (LPTHREAD_START_ROUTINE)waitAndConnect(portNum) , NULL , NULL , NULL);
+        //CreateThread(NULL , NULL , (LPTHREAD_START_ROUTINE)waitAndConnectThread(portNum) , NULL , NULL , NULL);
+        waitAndConnectThread(portNum);
     }
     system("pause");
     return 0;
+}
+
+void stringCut(int from , int to , char srcString[] , char *returnString){
+    int max = strlen(srcString);
+    if(to > max) to = max;
+    for(int i=from ; i <= to ; i++){
+        returnString[i] = srcString[i];
+    }
 }
