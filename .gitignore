@@ -1,3 +1,8 @@
+client/cmake-build-debug/*
+client/CMakeLists
+server/cmake-build-debug/*
+server/CMakeLists
+
 # Compiled Object files
 *.slo
 *.lo
