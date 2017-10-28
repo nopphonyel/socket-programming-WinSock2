@@ -33,3 +33,5 @@ server/CMakeLists
 *.app
 
 server/cmake-build-debug/
+
+client/cmake-build-debug/
