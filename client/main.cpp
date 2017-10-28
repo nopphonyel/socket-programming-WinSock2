@@ -5,7 +5,7 @@
 using namespace std;
 
 WSAData wsaData;
-
+const int expectedPacketLength = 150000;
 bool initWinSock() {
     WORD version = MAKEWORD(2, 1);
     if (WSAStartup(version, &wsaData) != 0) {
@@ -43,7 +43,7 @@ bool connectToServer(char *ipAddr, int portNum) {
 }
 
 bool recvData(char *recvWindow) {
-    recv(currentConnect, recvWindow, 155, NULL);
+    recv(currentConnect, recvWindow, expectedPacketLength+10, NULL);
     if (strlen(recvWindow) != 0) {
         return true;
     } else {
@@ -51,7 +51,7 @@ bool recvData(char *recvWindow) {
     }
 }
 
-char recvPacket[155] = {0};
+char recvPacket[expectedPacketLength+10] = {0};
 int waitForReceive(char *ipAddr , int portNum) {
     string reqCommand;
     if (initWinSock()) {
@@ -68,6 +68,7 @@ int waitForReceive(char *ipAddr , int portNum) {
                         send(currentConnect, "7EBYE7E", sizeof("7EBYE7E") + 1, NULL);
                         break;
                     }
+                    memset(recvPacket , 0 , sizeof(recvPacket));
                 }
             }
         }

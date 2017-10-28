@@ -5,6 +5,7 @@
 #include <list>
 #include <fstream>
 #include <vector>
+#define  TIMEOUT_SEC 0.5
 using namespace std;
 
 enum commandSet{
@@ -12,6 +13,11 @@ enum commandSet{
     ack,
     bye,
     no_command
+};
+
+enum sendMode{
+    stop_and_wait,
+    selective_repeat
 };
 
 void extractData(string fileName);
@@ -23,12 +29,12 @@ int waitAndConnectThread(int portNum);
 void encode(int seq , bool isLastSeq , string data);
 commandSet selectCommand(char commandPacket[]);
 void sepDataAndSend(const string &arg);
-void stringCut(int from , int to , char srcString[] ,  char *returnString);
 
 WSAData wsaData;
 SOCKADDR_IN currentAddress;
 int addrlen = 0;
-const int expectedPacketLength = 150;
+const int expectedPacketLength = 150000;
+sendMode currentMode;
 
 bool initWinSock() {
     WORD version = MAKEWORD(2, 1);
@@ -54,11 +60,11 @@ void initListener(int portNum){
     bind(slisten, (SOCKADDR *) &currentAddress, addrlen);
 }
 bool waitAndConnect() {
-
     cout << "<I>:Waiting for incoming connection" << endl;
     listen(slisten, SOMAXCONN);
 
     SOCKET newCon;
+    DWORD timeOut = TIMEOUT_SEC * 1000;
     newCon = accept(slisten, (SOCKADDR *) &currentAddress, &addrlen);
     if (newCon == 0) {
         cout << "<X>:Failed to accept client's connection." << endl;
@@ -66,11 +72,13 @@ bool waitAndConnect() {
     } else {
         cout << "-<I>:Connection from client!" << endl;
         currentConnect = newCon;
+        setsockopt(currentConnect , SOL_SOCKET , SO_RCVTIMEO , (char*)&timeOut, sizeof(timeOut));
         return true;
     }
 }
 
 bool sendData(string window) {
+    auto * debug_packet = const_cast<char *>(window.c_str());
     send(currentConnect, window.c_str(), window.length(), NULL);
     return true;
 }
@@ -118,7 +126,7 @@ commandSet selectCommand(char commandPacket[]){
 bool feedBack() {
     char ackPacket[20];
     recv(currentConnect, ackPacket, 20 , NULL);
-    cout << ackPacket << " ";
+    cout << "[Client-COMMAND]:" << ackPacket << ",";
     switch(selectCommand(ackPacket)){
         case ack:
             return true;
@@ -190,14 +198,14 @@ void encode(int seq , bool isLastSeq , string data){
     char seqChar[6];
     sprintf(seqChar , "%06d" , seq);
     string seqStr = seqChar;
-    packet = "";
+    packet.clear();
     packet = packet+flag;
     if(isLastSeq) packet+="1";
     else packet+="0";
     packet+=seqStr;
     packet+=data.c_str();
     packet+=flag;
-    cout << seqChar << " : " << data << endl;
+    cout << "<I>:Encoded SEQ:" << seqChar << " ";
     //cout << "---[<SEQ:" << seq << ">:" << packet << "] : len = " << data.length() <<endl;
 }
 
@@ -231,7 +239,6 @@ void extractData(string fileName){
             index++;
             if (index >= trueDataSize - 1) {
                 eachData = eachSepData;
-                cout << eachData << endl;
                 listOfSeperatedData.push_back(eachData);
                 memset(eachSepData, 0, sizeof(eachSepData));
                 index=0;
@@ -239,11 +246,18 @@ void extractData(string fileName){
         }
     }
     eachData = eachSepData;
-    cout << eachData << endl;
     listOfSeperatedData.push_back(eachData);
 }
 
 int main() {
+    int mode=-1;
+    while(mode!= 0 && mode!=1) {
+        cout << "Please select mode\n\t\'0\' : Stop and wait mode\n\t\'1\' : Selective Repeat mode\nMODE>";
+        cin >> mode;
+        if (mode == 0) currentMode = stop_and_wait;
+        else if (mode == 1) currentMode = selective_repeat;
+        else cout << "<X>:Incorrect choice\n";
+    }
     cout << "Please enter port number\nPORT>";
     int portNum = 0;
     cin >> portNum;
@@ -253,12 +267,4 @@ int main() {
     }
     system("pause");
     return 0;
-}
-
-void stringCut(int from , int to , char srcString[] , char *returnString){
-    int max = strlen(srcString);
-    if(to > max) to = max;
-    for(int i=from ; i <= to ; i++){
-        returnString[i] = srcString[i];
-    }
 }
