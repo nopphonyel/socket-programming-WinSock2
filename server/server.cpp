@@ -1,5 +1,3 @@
-#pragma comment(lib, "Ws2_32.lib")
-
 #include <iostream>
 #include <WinSock2.h>
 #include <string>
@@ -205,7 +203,7 @@ void encode(int seq , bool isLastSeq , string data){
 
 void extractData(string fileName){
     ifstream fileRead(fileName);
-    char eachSepData[trueDataSize+10]={0} , eachChar , similar[10]={0} , ESC = 'a';
+    char eachSepData[trueDataSize+10]={0} , eachChar , similar[10]={0} , *ESC = flag;
     int index=0 , similarity_lvl = 0;
     string eachData;
     while(fileRead.get(eachChar)){
@@ -215,9 +213,9 @@ void extractData(string fileName){
             //When this function sure that detect the flag so replace flag (in this case use "7E")
             //with ESC+flag ("'27'7E")
             if(similarity_lvl == strlen(flag)){
-                eachSepData[index] = ESC;
+                strcat(eachSepData , flag);
                 strcat(eachSepData , similar);
-                index+=similarity_lvl+1;
+                index+=2*similarity_lvl;
                 similarity_lvl=0;
                 memset(similar , 0 , sizeof(similar));
             }
