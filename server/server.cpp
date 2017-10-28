@@ -5,7 +5,8 @@
 #include <list>
 #include <fstream>
 #include <vector>
-#define  TIMEOUT_SEC 0.5
+#define TIMEOUT_FILE_SEND_SEC 0.5
+#define TIMEOUT_INACTIVITY 30
 using namespace std;
 
 enum commandSet{
@@ -20,7 +21,7 @@ enum sendMode{
     selective_repeat
 };
 
-void extractData(string fileName);
+void extDataStopNWait(string fileName);
 void initListener(int portNum);
 bool waitAndConnect();
 bool sendData(string window);
@@ -33,7 +34,7 @@ void sepDataAndSend(const string &arg);
 WSAData wsaData;
 SOCKADDR_IN currentAddress;
 int addrlen = 0;
-const int expectedPacketLength = 150000;
+const int expectedPacketLength = 150000 , MAX_ATTEMP = 4;
 sendMode currentMode;
 
 bool initWinSock() {
@@ -64,7 +65,7 @@ bool waitAndConnect() {
     listen(slisten, SOMAXCONN);
 
     SOCKET newCon;
-    DWORD timeOut = TIMEOUT_SEC * 1000;
+    DWORD timeOut = TIMEOUT_INACTIVITY * 1000;
     newCon = accept(slisten, (SOCKADDR *) &currentAddress, &addrlen);
     if (newCon == 0) {
         cout << "<X>:Failed to accept client's connection." << endl;
@@ -129,8 +130,10 @@ bool feedBack() {
     cout << "[Client-COMMAND]:" << ackPacket << ",";
     switch(selectCommand(ackPacket)){
         case ack:
+            cout << " -<I>:Packet receive" << endl;
             return true;
         default:
+            cout << " -<!>:Packet unreceived or corrupted, Resending..." << endl;
             return false;
     }
 }
@@ -139,6 +142,7 @@ char commandPacket[510]={0};
 bool toggleLeave = false;
 int commandSize = 0;
 int waitAndConnectThread(int portNum){
+    DWORD timeOut = TIMEOUT_FILE_SEND_SEC*1000;
     initListener(portNum);
     while (true) {
         if (waitAndConnect()) {
@@ -153,7 +157,9 @@ int waitAndConnectThread(int portNum){
                 switch (selectCommand(commandPacket)) {
                     case req:
                         cout << "-<I>:Client request file " << argument << "\n\tNow sending..." << endl;
-                        sepDataAndSend(argument);
+                        setsockopt(currentConnect , SOL_SOCKET , SO_RCVTIMEO , (char*)&timeOut, sizeof(timeOut));
+                        extDataStopNWait(argument);
+                        //sepDataAndSend(argument);
                         break;
                     case ack:
                         cout << "-<I>:Client ACK receive but... ACK what??" << endl;
@@ -173,7 +179,7 @@ int waitAndConnectThread(int portNum){
 }
 
 void sepDataAndSend(const string &arg){
-    extractData(arg);
+    //extractData(arg);
     int seq = 0 , totalSize = listOfSeperatedData.size();
     for(list<string>::iterator it=listOfSeperatedData.begin(); it != listOfSeperatedData.end() ; it++){
         if(seq == totalSize-1){
@@ -209,10 +215,12 @@ void encode(int seq , bool isLastSeq , string data){
     //cout << "---[<SEQ:" << seq << ">:" << packet << "] : len = " << data.length() <<endl;
 }
 
-void extractData(string fileName){
+
+void extDataStopNWait(string fileName){
     ifstream fileRead(fileName);
     char eachSepData[trueDataSize+10]={0} , eachChar , similar[10]={0} , *ESC = flag;
-    int index=0 , similarity_lvl = 0;
+    int index=0 , similarity_lvl = 0 , seq = 0 ,attemp=0;
+    bool feedBackResult = true;
     string eachData;
     while(fileRead.get(eachChar)){
         if(eachChar == flag[similarity_lvl]){
@@ -237,16 +245,43 @@ void extractData(string fileName){
             }
             eachSepData[index] = eachChar;
             index++;
+            //When length is enou to be send
             if (index >= trueDataSize - 1) {
                 eachData = eachSepData;
-                listOfSeperatedData.push_back(eachData);
+                encode(seq , false, eachData);
+                seq++;
+                //listOfSeperatedData.push_back(eachData);
                 memset(eachSepData, 0, sizeof(eachSepData));
                 index=0;
+                do{
+                    if(!feedBackResult){
+                        Sleep(1000);
+                        attemp++;
+                        if(attemp >= MAX_ATTEMP+1) break;
+                        else cout << "<ATTEMP:" << attemp << ">";
+                    }else attemp = 0;
+                    sendData(packet);
+                    feedBackResult = feedBack();
+                }while (!feedBackResult);
+                if(attemp >= MAX_ATTEMP+1) break;
             }
         }
     }
     eachData = eachSepData;
-    listOfSeperatedData.push_back(eachData);
+    if(attemp < MAX_ATTEMP) {
+        encode(seq, true, eachData);
+        do {
+            if (!feedBackResult) {
+                Sleep(100);
+                attemp++;
+                if (attemp >= MAX_ATTEMP+1) break;
+                else cout << "<ATTEMP:" << attemp << ">";
+            }else attemp = 0;
+            sendData(packet);
+            feedBackResult = feedBack();
+        } while (!feedBackResult);
+    }
+    //listOfSeperatedData.push_back(eachData);
 }
 
 int main() {
