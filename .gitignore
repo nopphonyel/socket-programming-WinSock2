@@ -31,3 +31,5 @@ server/CMakeLists
 *.exe
 *.out
 *.app
+
+server/cmake-build-debug/
