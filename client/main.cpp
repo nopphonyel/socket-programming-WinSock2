@@ -43,7 +43,7 @@ bool connectToServer(char *ipAddr, int portNum) {
 }
 
 bool recvData(char *recvWindow) {
-    recv(currentConnect, recvWindow, 150, NULL);
+    recv(currentConnect, recvWindow, 155, NULL);
     if (strlen(recvWindow) != 0) {
         return true;
     } else {
@@ -51,15 +51,23 @@ bool recvData(char *recvWindow) {
     }
 }
 
-char recvPacket[150] = {0};
+char recvPacket[155] = {0};
 int waitForReceive(char *ipAddr , int portNum) {
+    string reqCommand;
     if (initWinSock()) {
         if (connectToServer(ipAddr, portNum)) {
+            cout << "<I>:Connected to server!, please specify file name\nFILE_NAME>";
+            cin >> reqCommand;
+            reqCommand = "7EREQ" + reqCommand + "7E";
+            send(currentConnect , reqCommand.c_str() , reqCommand.length() , NULL);
             while(true) {
                 if (recvData(recvPacket)) {
-                    cout << "<I>:Text recieve as : " << recvPacket
-                         << " " << strlen(recvPacket) << endl;
-                    send(currentConnect, "ACK", sizeof("ACK") + 1, NULL);
+                    cout << "<I>:" << recvPacket << endl;
+                    send(currentConnect, "7EACK-7E", sizeof("7EACK-7E") + 1, NULL);
+                    if(recvPacket[2] == '1'){
+                        send(currentConnect, "7EBYE7E", sizeof("7EBYE7E") + 1, NULL);
+                        break;
+                    }
                 }
             }
         }
@@ -72,5 +80,6 @@ int main() {
     cout << "Please enter IP Address and port number\nIP,PORT>";
     cin >> ipAddr >> portNum;
     waitForReceive(ipAddr , portNum);
+    system("pause");
     return 0;
 }

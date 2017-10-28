@@ -4,7 +4,7 @@ set(CMAKE_DEPENDS_LANGUAGES
   )
 # The set of files for implicit dependencies of each language:
 set(CMAKE_DEPENDS_CHECK_CXX
-  "E:/Users/nopph/Documents/Network/Project/socket-programming-WinSock2/server/server.cpp" "E:/Users/nopph/Documents/Network/Project/socket-programming-WinSock2/server/cmake-build-debug/CMakeFiles/socket_project.dir/server.cpp.obj"
+  "D:/Users/nopph/Documents/Network/Socket Project/socket_project/server/server.cpp" "D:/Users/nopph/Documents/Network/Socket Project/socket_project/server/cmake-build-debug/CMakeFiles/socket_project.dir/server.cpp.obj"
   )
 set(CMAKE_CXX_COMPILER_ID "GNU")
 

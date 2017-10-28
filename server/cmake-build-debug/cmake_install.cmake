@@ -1,4 +1,4 @@
-# Install script for directory: E:/Users/nopph/Documents/Network/Project/socket-programming-WinSock2/server
+# Install script for directory: D:/Users/nopph/Documents/Network/Socket Project/socket_project/server
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)
@@ -35,5 +35,5 @@ endif()
 
 string(REPLACE ";" "\n" CMAKE_INSTALL_MANIFEST_CONTENT
        "${CMAKE_INSTALL_MANIFEST_FILES}")
-file(WRITE "E:/Users/nopph/Documents/Network/Project/socket-programming-WinSock2/server/cmake-build-debug/${CMAKE_INSTALL_MANIFEST}"
+file(WRITE "D:/Users/nopph/Documents/Network/Socket Project/socket_project/server/cmake-build-debug/${CMAKE_INSTALL_MANIFEST}"
      "${CMAKE_INSTALL_MANIFEST_CONTENT}")
