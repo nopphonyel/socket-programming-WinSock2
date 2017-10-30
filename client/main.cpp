@@ -1,11 +1,24 @@
 #include <iostream>
 #include <winsock2.h>
+#include <string>
 #include <afxres.h>
 
 using namespace std;
 
 WSAData wsaData;
-const int expectedPacketLength = 150000;
+const int expectedPacketLength = 15000;
+char flag[2] ="~";
+string argument;
+
+int getSequenceNum(char commandPacket[]) {
+    int len = (int)strlen(commandPacket) , seq=0;
+    char num[7]={0};
+    for(int i=2 ; i<8 ; i++){
+        num[i-2] = commandPacket[i];
+    }
+    seq=atoi(num);
+}
+
 bool initWinSock() {
     WORD version = MAKEWORD(2, 1);
     if (WSAStartup(version, &wsaData) != 0) {
@@ -53,19 +66,25 @@ bool recvData(char *recvWindow) {
 
 char recvPacket[expectedPacketLength+10] = {0};
 int waitForReceive(char *ipAddr , int portNum) {
-    string reqCommand;
+    char reqCommand[500];
+    char ackCommand[12]={0} , reqComm[501];
+    int seq=0;
     if (initWinSock()) {
         if (connectToServer(ipAddr, portNum)) {
             cout << "<I>:Connected to server!, please specify file name\nFILE_NAME>";
             cin >> reqCommand;
-            reqCommand = "7EREQ" + reqCommand + "7E";
-            send(currentConnect , reqCommand.c_str() , reqCommand.length() , NULL);
+            sprintf(reqComm , "~REQ%s~" , reqCommand);
+            send(currentConnect , reqComm  , sizeof(reqComm) , NULL);
             while(true) {
                 if (recvData(recvPacket)) {
                     cout << "<I>:" << recvPacket << endl;
-                    send(currentConnect, "7EACK-7E", sizeof("7EACK-7E") + 1, NULL);
-                    if(recvPacket[2] == '1'){
-                        send(currentConnect, "7EBYE7E", sizeof("7EBYE7E") + 1, NULL);
+                    seq = getSequenceNum(recvPacket);
+                    memset(ackCommand , 0 , strlen(ackCommand));
+                    sprintf(ackCommand , "~ACK%d~" , seq);
+                    cout << ackCommand << endl;
+                    send(currentConnect, ackCommand, 12, NULL);
+                    if(recvPacket[1] == '1'){
+                        send(currentConnect, "~BYE~", sizeof("~BYE~"), NULL);
                         break;
                     }
                     memset(recvPacket , 0 , sizeof(recvPacket));
