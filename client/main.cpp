@@ -2,21 +2,25 @@
 #include <winsock2.h>
 #include <string>
 #include <afxres.h>
+#include <fstream>
 
 using namespace std;
 
 WSAData wsaData;
-const int expectedPacketLength = 15000;
+const int expectedPacketLength = 150;
+const int MAX_PACKET_LENGTH = expectedPacketLength + 10;
 char flag[2] ="~";
 string argument;
 
+
 int getSequenceNum(char commandPacket[]) {
-    int len = (int)strlen(commandPacket) , seq=0;
+    int seq=0;
     char num[7]={0};
     for(int i=2 ; i<8 ; i++){
         num[i-2] = commandPacket[i];
     }
     seq=atoi(num);
+    return seq;
 }
 
 bool initWinSock() {
@@ -44,7 +48,7 @@ bool connectToServer(char *ipAddr, int portNum) {
     targetServer.sin_port = htons(portNum);
 
     SOCKET socket1;
-    socket1 = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    socket1 = socket(AF_INET, SOCK_STREAM, IPPROTO_UDP);
     if (connect(socket1, (SOCKADDR *) &targetServer, sizeOfSocketAddr) == SOCKET_ERROR) {
         cout << "<X>:Failed to connect to " << targetServer.sin_addr.S_un.S_addr << endl;
         return false;
@@ -56,7 +60,7 @@ bool connectToServer(char *ipAddr, int portNum) {
 }
 
 bool recvData(char *recvWindow) {
-    recv(currentConnect, recvWindow, expectedPacketLength+10, NULL);
+    recv(currentConnect, recvWindow, MAX_PACKET_LENGTH, NULL);
     if (strlen(recvWindow) != 0) {
         return true;
     } else {
@@ -64,10 +68,22 @@ bool recvData(char *recvWindow) {
     }
 }
 
-char recvPacket[expectedPacketLength+10] = {0};
+string getData(char packet[]){
+    int len = (int)strlen(packet);
+    char dataCStr[expectedPacketLength] = {0};
+    string dataStr;
+    for(int i=8 ; i<len-1 ; i++){
+        dataCStr[i-8] = packet[i];
+    }
+    dataStr = dataCStr;
+    return dataStr;
+}
+
+char recvPacket[expectedPacketLength] = {0};
 int waitForReceive(char *ipAddr , int portNum) {
     char reqCommand[500];
     char ackCommand[12]={0} , reqComm[501];
+    string data;
     int seq=0;
     if (initWinSock()) {
         if (connectToServer(ipAddr, portNum)) {
@@ -75,13 +91,17 @@ int waitForReceive(char *ipAddr , int portNum) {
             cin >> reqCommand;
             sprintf(reqComm , "~REQ%s~" , reqCommand);
             send(currentConnect , reqComm  , sizeof(reqComm) , NULL);
+            ofstream outFile(reqCommand);
             while(true) {
+                //Sleep(100);
                 if (recvData(recvPacket)) {
                     cout << "<I>:" << recvPacket << endl;
                     seq = getSequenceNum(recvPacket);
                     memset(ackCommand , 0 , strlen(ackCommand));
                     sprintf(ackCommand , "~ACK%d~" , seq);
                     cout << ackCommand << endl;
+                    data = getData(recvPacket);
+                    outFile << data;
                     send(currentConnect, ackCommand, 12, NULL);
                     if(recvPacket[1] == '1'){
                         send(currentConnect, "~BYE~", sizeof("~BYE~"), NULL);

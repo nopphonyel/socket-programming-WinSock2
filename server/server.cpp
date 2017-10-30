@@ -5,7 +5,6 @@
 #include <thread>
 #include <mutex>
 #include <condition_variable>
-
 #define TIMEOUT_FILE_SEND_SEC 0.5
 #define TIMEOUT_INACTIVITY 30
 using namespace std;
@@ -22,38 +21,6 @@ enum sendMode {
     selective_repeat
 };
 
-void extDataStopNWait(const string &fileName);
-
-void initListener(int portNum);
-
-bool waitAndConnect();
-
-bool sendData(const string &window);
-
-bool feedBack();
-
-int waitAndConnectThread(int portNum);
-
-void encode(int seq, bool isLastSeq, const string &data);
-
-commandSet selectCommand(char commandPacket[]);
-
-void sendInBackground(string fileName);
-
-void extDataSelectiveRepeat(string fileName);
-
-void sepDataAndSend(const string &arg);
-
-void removePacketSeq(int seq);
-
-void resendThread();
-
-WSAData wsaData;
-SOCKADDR_IN currentAddress;
-int addrlen = 0;
-const int expectedPacketLength = 150, MAX_ATTEMP = 4, SND_BUFF_SIZE = 10;
-sendMode currentMode;
-char flag[2] = "~";
 
 class PacketPack {
 public:
@@ -78,6 +45,30 @@ public:
     }
 };
 
+void extDataStopNWait(const string &fileName);
+void initListener(int portNum);
+bool waitAndConnect();
+bool sendData(const string &window);
+bool feedBack();
+int waitAndConnectThread(int portNum);
+void encode(int seq, bool isLastSeq, const string &data);
+commandSet selectCommand(char commandPacket[]);
+void sendInBackground(string fileName);
+void extDataSelectiveRepeat(string fileName);
+void removePacketSeq(int seq);
+void resendThread();
+void increaseAttmp(PacketPack &eachPack);
+void increaseTTR(PacketPack &eachPack);
+void resetTTR(PacketPack &eachPack);
+
+WSAData wsaData;
+SOCKADDR_IN currentAddress;
+int addrlen = 0;
+const int expectedPacketLength = 150, MAX_ATTEMP = 4, MAX_TTR = 3 , SND_BUFF_SIZE = 10;
+const int MAX_PACKET_LENGTH = expectedPacketLength + 10;
+sendMode currentMode;
+char flag[2] = "~";
+
 bool initWinSock() {
     WORD version = MAKEWORD(2, 1);
     if (WSAStartup(version, &wsaData) != 0) {
@@ -95,7 +86,7 @@ void initListener(int portNum) {
     currentAddress.sin_port = htons((u_short) portNum);
     currentAddress.sin_family = AF_INET;
 
-    slisten = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP); //Socket that listen for new connections
+    slisten = socket(AF_INET, SOCK_STREAM, IPPROTO_UDP); //Socket that listen for new connections
     bind(slisten, (SOCKADDR *) &currentAddress, addrlen);
 }
 
@@ -119,7 +110,7 @@ bool waitAndConnect() {
 
 bool sendData(const string &window) {
     auto *debug_packet = const_cast<char *>(window.c_str());
-    send(currentConnect, window.c_str(), (int) window.length(), NULL);
+    send(currentConnect, window.c_str(), MAX_PACKET_LENGTH, NULL);
     return true;
 }
 
@@ -219,27 +210,6 @@ int waitAndConnectThread(int portNum) {
     }
 }
 
-void sepDataAndSend(const string &arg) {
-    //extractData(arg);
-    int seq = 0, totalSize = (int) listOfSeperatedData.size();
-    for (auto it = listOfSeperatedData.begin(); it != listOfSeperatedData.end(); it++) {
-        if (seq == totalSize - 1) {
-            //encode(seq , true , *it);
-        } else {
-            //encode(seq , false , *it);
-        }
-        if (sendData(packet)) {
-            if (feedBack()) {
-                cout << " -<I>:Data receive successfully" << endl;
-                seq++;
-            } else {
-                cout << " -<!>:Data receive unsuccessful, resending..." << endl;
-                it--;
-            }
-        }
-    }
-}
-
 void encode(int seq, bool isLastSeq, const string &data) {
     char seqChar[6];
     sprintf(seqChar, "%06d", seq);
@@ -264,8 +234,7 @@ condition_variable cond;
 void sendInBackground(string fileName) {
     ifstream fileRead(fileName);
     char eachSepData[trueDataSize + 10] = {0}, eachChar, similar[10] = {0};
-    int index = 0, similarity_lvl = 0, seq = 0, attemp = 0;
-    bool feedBackResult = true;
+    int index = 0, similarity_lvl = 0, seq = 0;
     PacketPack eachPack = PacketPack();
     string eachData;
     while (fileRead.get(eachChar)) {
@@ -309,8 +278,8 @@ void sendInBackground(string fileName) {
                 cout << "[SEQ:" << seq << "]";
                 listOfSeperatedData.push_back(eachPack);
                 cout << "--RESOURCE UNLOCKED! --:" << endl;
-                locker.unlock();
                 sendData(packet);
+                locker.unlock();
                 seq++;
             }
         }
@@ -356,7 +325,7 @@ void extDataSelectiveRepeat(string fileName) {
             removePacketSeq(ackSeq);
         }
     } while (ackSeq != lastSequence || !listOfSeperatedData.empty());
-    cout << " --File successfully sent!" << endl;
+    cout << " --Now leaving sending mode..." << endl;
     if(readAndSend.joinable()) readAndSend.join();
     if(resenderCheck.joinable()) resenderCheck.join();
 }
@@ -375,15 +344,24 @@ void removePacketSeq(int seq) {
 }
 
 void resendThread() {
-    DWORD wait = 1000;
-    int ttr = 0;
+    DWORD wait = 500;
     while (isSending || !listOfSeperatedData.empty()) {
         Sleep(wait);
         PacketPack eachPack;
         unique_lock<mutex> locker(mu);
         for (auto it = listOfSeperatedData.begin(); it != listOfSeperatedData.end(); it++) {
             eachPack = *it;
-            sendData(eachPack.packet);
+            increaseTTR(*it);
+            if(eachPack.attemp >= MAX_ATTEMP){
+                cout <<  " ----REMOVING packet SEQ : " << eachPack.seq << endl;
+                it = listOfSeperatedData.erase(it);
+            }
+            if(eachPack.ttr >= MAX_TTR){
+                cout <<  " ----ATTEMP " << eachPack.attemp+1 <<" on SEQ : " << eachPack.seq << endl;
+                sendData(eachPack.packet);
+                increaseAttmp(*it);
+                resetTTR(*it);
+            }
         }
         locker.unlock();
     }
@@ -397,6 +375,7 @@ void extDataStopNWait(const string &fileName) {
     int index = 0, similarity_lvl = 0, seq = 0, attemp = 0;
     bool feedBackResult = true;
     string eachData;
+    fileRead.hex;
     while (fileRead.get(eachChar)) {
         if (eachChar == flag[similarity_lvl]) {
             similar[similarity_lvl] = eachChar;
@@ -458,21 +437,20 @@ void extDataStopNWait(const string &fileName) {
     //listOfSeperatedData.push_back(eachData);
 }
 
-void testMethod(){
-    PacketPack packer = PacketPack();
-    packer.seq=3;
-    cout << packer.seq;
-    listOfSeperatedData.push_back(packer);
-    list<PacketPack>::iterator it=listOfSeperatedData.begin();
-    packer = *it;
-    packer.seq++;
-    packer = *it;
-    cout << packer.seq;
+void increaseAttmp(PacketPack &eachPack){
+    eachPack.increaseATTMP();
+}
+
+void increaseTTR(PacketPack &eachPack){
+    eachPack.increaseTTR();
+}
+
+void resetTTR(PacketPack &eachPack){
+    eachPack.ttr = 0;
 }
 
 int main() {
     int mode = -1;
-    testMethod();
     while (mode != 0 && mode != 1) {
         cout << "Please select mode\n\t\'0\' : Stop and wait mode\n\t\'1\' : Selective Repeat mode\nMODE>";
         cin >> mode;
